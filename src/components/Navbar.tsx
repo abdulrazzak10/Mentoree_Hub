@@ -3,15 +3,16 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Menu, X, GraduationCap } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabaseClient";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const isLoggedIn = localStorage.getItem("userRole");
+  const { isAuthenticated, profile } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userEmail");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate("/");
   };
 
@@ -19,14 +20,21 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center space-x-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold">GetMentor</span>
-          </Link>
+          {isAuthenticated ? (
+            <div className="flex items-center space-x-2 cursor-default select-none">
+              <GraduationCap className="h-8 w-8 text-primary" />
+              <span className="text-xl font-bold">GetMentor</span>
+            </div>
+          ) : (
+            <Link to="/" className="flex items-center space-x-2">
+              <GraduationCap className="h-8 w-8 text-primary" />
+              <span className="text-xl font-bold">GetMentor</span>
+            </Link>
+          )}
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
-            {!isLoggedIn ? (
+            {!isAuthenticated ? (
               <>
                 <Link to="/login" className="text-sm font-medium hover:text-primary transition-colors">
                   Login
@@ -37,12 +45,18 @@ export function Navbar() {
               </>
             ) : (
               <>
-                <Link
-                  to={isLoggedIn === "student" ? "/student/dashboard" : "/mentor/dashboard"}
-                  className="text-sm font-medium hover:text-primary transition-colors"
-                >
-                  Dashboard
-                </Link>
+                {profile?.is_admin ? (
+                  <Link to="/admin" className="text-sm font-medium hover:text-primary transition-colors">
+                    Admin
+                  </Link>
+                ) : (
+                  <Link
+                    to={profile?.role === "student" ? "/student/dashboard" : "/mentor/dashboard"}
+                    className="text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                )}
                 <Button variant="outline" onClick={handleLogout}>
                   Logout
                 </Button>
@@ -63,7 +77,7 @@ export function Navbar() {
         {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden py-4 space-y-3 border-t">
-            {!isLoggedIn ? (
+            {!isAuthenticated ? (
               <>
                 <Link
                   to="/login"
@@ -82,16 +96,26 @@ export function Navbar() {
               </>
             ) : (
               <>
-                <Link
-                  to={isLoggedIn === "student" ? "/student/dashboard" : "/mentor/dashboard"}
-                  className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Dashboard
-                </Link>
+                {profile?.is_admin ? (
+                  <Link
+                    to="/admin"
+                    className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Admin
+                  </Link>
+                ) : (
+                  <Link
+                    to={profile?.role === "student" ? "/student/dashboard" : "/mentor/dashboard"}
+                    className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                )}
                 <button
-                  onClick={() => {
-                    handleLogout();
+                  onClick={async () => {
+                    await handleLogout();
                     setIsMenuOpen(false);
                   }}
                   className="block w-full text-left px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"

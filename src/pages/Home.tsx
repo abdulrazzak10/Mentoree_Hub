@@ -5,7 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { useNavigate } from "react-router-dom";
 import { Shield, Brain, Globe, ArrowRight, UserCheck, Calendar, MessageSquare, TrendingUp } from "lucide-react";
-import heroImage from "@/assets/hero-mentorship.jpg";
+import heroImage from "@/assets/amushchuiiumer.png";
 
 export default function Home() {
   const navigate = useNavigate();

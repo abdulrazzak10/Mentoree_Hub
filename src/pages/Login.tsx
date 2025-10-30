@@ -7,26 +7,51 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const { profile } = useAuth();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    // Fake role detection based on email
-    const role = email.toLowerCase().includes("mentor") ? "mentor" : "student";
-    
-    localStorage.setItem("userRole", role);
-    localStorage.setItem("userEmail", email);
-    toast.success("Logged in successfully!");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    // Fetch the fresh profile to check deactivation
+    const { data: session } = await supabase.auth.getUser();
+    const uid = session.user?.id;
+    let userProfile = profile;
+    if (uid) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("id, role, is_admin, is_active, deactivated_reason")
+        .eq("id", uid)
+        .maybeSingle();
+      if (p) userProfile = p as any;
+    }
 
-    navigate(role === "mentor" ? "/mentor/dashboard" : "/student/dashboard");
+    if (userProfile && userProfile.is_active === false) {
+      toast.error(`You have been deactivated for this reason: ${userProfile.deactivated_reason || "No reason provided"}`);
+      await supabase.auth.signOut();
+      return;
+    }
+
+    toast.success("Logged in successfully!");
+    if (userProfile?.is_admin) {
+      navigate("/admin");
+    } else {
+      navigate(userProfile?.role === "mentor" ? "/mentor/dashboard" : "/student/dashboard");
+    }
   };
 
   return (
@@ -52,7 +77,6 @@ export default function Login() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="your@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -63,7 +87,6 @@ export default function Login() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleLogin()}
@@ -85,9 +108,7 @@ export default function Login() {
                 </button>
               </p>
 
-              <div className="pt-4 border-t text-center text-xs text-muted-foreground">
-                <p>Demo: Use any email (include "mentor" for mentor role)</p>
-              </div>
+              <div className="pt-4 border-t text-center text-xs text-muted-foreground"></div>
             </CardContent>
           </Card>
         </motion.div>

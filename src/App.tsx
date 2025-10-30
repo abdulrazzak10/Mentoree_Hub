@@ -7,12 +7,18 @@ import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import StudentDashboard from "./pages/StudentDashboard";
+import StudentSessions from "./pages/StudentSessions";
 import MentorDashboard from "./pages/MentorDashboard";
+import MentorRequests from "./pages/MentorRequests";
+import MentorSessions from "./pages/MentorSessions";
 import MentorList from "./pages/MentorList";
+import MentorProfile from "./pages/MentorProfile";
 import BookSession from "./pages/BookSession";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/AdminDashboard";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -26,16 +32,17 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
-          <Route path="/student/sessions" element={<StudentDashboard />} />
-          <Route path="/mentor/dashboard" element={<MentorDashboard />} />
-          <Route path="/mentor/requests" element={<MentorDashboard />} />
-          <Route path="/mentor/sessions" element={<MentorDashboard />} />
+          <Route path="/student/dashboard" element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/student/sessions" element={<ProtectedRoute role="student"><StudentSessions /></ProtectedRoute>} />
+          <Route path="/mentor/dashboard" element={<ProtectedRoute role="mentor"><MentorDashboard /></ProtectedRoute>} />
+          <Route path="/mentor/requests" element={<ProtectedRoute role="mentor"><MentorRequests /></ProtectedRoute>} />
+          <Route path="/mentor/sessions" element={<ProtectedRoute role="mentor"><MentorSessions /></ProtectedRoute>} />
           <Route path="/mentors" element={<MentorList />} />
-          <Route path="/mentor/:mentorId" element={<MentorList />} />
-          <Route path="/book-session/:mentorId" element={<BookSession />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/mentor/:mentorId" element={<MentorProfile />} />
+          <Route path="/book-session/:mentorId" element={<ProtectedRoute><BookSession /></ProtectedRoute>} />
+          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute role="admin"><AdminDashboard /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

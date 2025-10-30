@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Star, MapPin, Languages } from "lucide-react";
 import { Mentor } from "@/utils/dummyData";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 interface MentorCardProps {
   mentor: Mentor;
@@ -13,6 +16,45 @@ interface MentorCardProps {
 
 export function MentorCard({ mentor, index = 0 }: MentorCardProps) {
   const navigate = useNavigate();
+  const { isAuthenticated, userId, profile } = useAuth();
+
+  const handleMessage = async () => {
+    if (!isAuthenticated || !userId) {
+      toast.error("Please login to start a chat");
+      navigate("/login");
+      return;
+    }
+    // Only students can start chat from mentor card
+    if (profile?.role !== "student") {
+      toast.info("Switch to a student account to message mentors");
+      return;
+    }
+    // Find or create chat between current student and this mentor
+    const { data: existing, error: findErr } = await supabase
+      .from("chats")
+      .select("id")
+      .eq("mentor_id", mentor.id)
+      .eq("student_id", userId)
+      .maybeSingle();
+    if (findErr) {
+      toast.error(findErr.message);
+      return;
+    }
+    let chatId = existing?.id;
+    if (!chatId) {
+      const { data: created, error: createErr } = await supabase
+        .from("chats")
+        .insert({ mentor_id: mentor.id, student_id: userId })
+        .select("id")
+        .single();
+      if (createErr) {
+        toast.error(createErr.message);
+        return;
+      }
+      chatId = created.id;
+    }
+    navigate(`/chat?chatId=${chatId}`);
+  };
 
   return (
     <motion.div
@@ -65,6 +107,9 @@ export function MentorCard({ mentor, index = 0 }: MentorCardProps) {
           </Button>
           <Button className="flex-1" onClick={() => navigate(`/book-session/${mentor.id}`)}>
             Book Session
+          </Button>
+          <Button variant="secondary" className="flex-1" onClick={handleMessage}>
+            Message
           </Button>
         </CardFooter>
       </Card>

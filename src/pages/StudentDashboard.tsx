@@ -3,36 +3,65 @@ import { Navbar } from "@/components/Navbar";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, MessageSquare, TrendingUp } from "lucide-react";
-import { dummySessions } from "@/utils/dummyData";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabaseClient";
 import { SessionCard } from "@/components/SessionCard";
 
 export default function StudentDashboard() {
-  const upcomingSessions = dummySessions.filter((s) => s.status === "upcoming");
+  const { userId } = useAuth();
+  const sessionsQuery = useQuery({
+    queryKey: ["sessions", "student", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("id, mentor_id, date, time, status, notes, profiles!sessions_mentor_id_fkey(name)")
+        .eq("student_id", userId)
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+  const chatsQuery = useQuery({
+    queryKey: ["chats", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chats")
+        .select("id")
+        .eq("student_id", userId);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const sessions = sessionsQuery.data || [];
+  const upcomingSessions = sessions
+    .filter((s) => s.status === "upcoming")
+    .map((s) => ({ id: s.id, mentorId: s.mentor_id, mentorName: s.profiles?.name || "Mentor", date: s.date, time: s.time, status: s.status, notes: s.notes || undefined }));
+  const mentorsBooked = new Set(sessions.map((s: any) => s.mentor_id)).size;
+  const sessionsCompleted = sessions.filter((s: any) => s.status === "completed").length;
+  const activeChats = (chatsQuery.data || []).length;
 
   const stats = [
     {
       title: "Mentors Booked",
-      value: "3",
+      value: String(mentorsBooked),
       icon: <Users className="h-5 w-5 text-primary" />,
-      change: "+1 this month",
+      change: "",
     },
     {
       title: "Sessions Done",
-      value: "12",
+      value: String(sessionsCompleted),
       icon: <Calendar className="h-5 w-5 text-primary" />,
-      change: "+3 this month",
+      change: "",
     },
     {
       title: "Active Chats",
-      value: "5",
+      value: String(activeChats),
       icon: <MessageSquare className="h-5 w-5 text-primary" />,
-      change: "2 unread",
-    },
-    {
-      title: "Growth Score",
-      value: "87%",
-      icon: <TrendingUp className="h-5 w-5 text-primary" />,
-      change: "+12% this month",
+      change: "",
     },
   ];
 

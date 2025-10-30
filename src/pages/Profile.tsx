@@ -10,10 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Camera, X } from "lucide-react";
+import { ArrowLeft, Camera, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Profile() {
-  const userRole = localStorage.getItem("userRole") || "student";
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const userRole = profile?.role || "student";
   const [profileImage, setProfileImage] = useState("https://api.dicebear.com/7.x/avataaars/svg?seed=User");
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
@@ -25,17 +30,30 @@ export default function Profile() {
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
-    const savedData = localStorage.getItem("profileData");
-    if (savedData) {
-      const data = JSON.parse(savedData);
-      setName(data.name || "");
-      setCountry(data.country || "");
-      setBio(data.bio || "");
-      setSkills(data.skills || []);
-      setAvailability(data.availability || []);
-      setProfileImage(data.profileImage || profileImage);
-    }
-  }, []);
+    if (!profile) return;
+    setName(profile.name || "");
+    setCountry(profile.country || "");
+    setBio(profile.bio || "");
+    setProfileImage(profile.profile_image_url || profileImage);
+  }, [profile]);
+
+  useEffect(() => {
+    const loadMentorData = async () => {
+      if (userRole !== "mentor" || !profile?.id) return;
+      const [{ data: skillsData }, { data: availData }] = await Promise.all([
+        supabase.from("mentor_skills").select("skill").eq("mentor_id", profile.id),
+        supabase.from("mentor_availability").select("day_of_week").eq("mentor_id", profile.id),
+      ]);
+      if (skillsData) setSkills(skillsData.map((s: any) => s.skill));
+      if (availData) setAvailability(
+        availData
+          .map((a: any) => days[(a.day_of_week as number) % 7])
+          .filter((d: string | undefined): d is string => Boolean(d))
+      );
+    };
+    loadMentorData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole, profile?.id]);
 
   const handleAddSkill = () => {
     if (newSkill.trim() && !skills.includes(newSkill.trim())) {
@@ -56,18 +74,63 @@ export default function Profile() {
     }
   };
 
-  const handleSave = () => {
-    const profileData = {
-      name,
-      country,
-      bio,
-      skills,
-      availability,
-      profileImage,
-    };
+  const handleSave = async () => {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name, country, bio, profile_image_url: profileImage })
+      .eq("id", profile?.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
 
-    localStorage.setItem("profileData", JSON.stringify(profileData));
+    if (userRole === "mentor" && profile?.id) {
+      // Replace mentor_skills with current list
+      const skillRows = skills
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+        .map((s) => ({ mentor_id: profile.id, skill: s }));
+      const { error: delSkillsErr } = await supabase.from("mentor_skills").delete().eq("mentor_id", profile.id);
+      if (delSkillsErr) {
+        toast.error(delSkillsErr.message);
+        return;
+      }
+      if (skillRows.length > 0) {
+        const { error: insSkillsErr } = await supabase.from("mentor_skills").insert(skillRows);
+        if (insSkillsErr) {
+          toast.error(insSkillsErr.message);
+          return;
+        }
+      }
+
+      // Replace mentor_availability from selected days
+      const dayToIndex = (d: string) => days.indexOf(d);
+      const availRows = availability
+        .map((d) => dayToIndex(d))
+        .filter((n) => n >= 0)
+        .map((n) => ({ mentor_id: profile.id, day_of_week: n, start_time: "09:00", end_time: "17:00" }));
+      const { error: delAvailErr } = await supabase.from("mentor_availability").delete().eq("mentor_id", profile.id);
+      if (delAvailErr) {
+        toast.error(delAvailErr.message);
+        return;
+      }
+      if (availRows.length > 0) {
+        const { error: insAvailErr } = await supabase.from("mentor_availability").insert(availRows);
+        if (insAvailErr) {
+          toast.error(insAvailErr.message);
+          return;
+        }
+      }
+    }
     toast.success("Profile updated successfully!");
+  };
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(userRole === "mentor" ? "/mentor/dashboard" : "/student/dashboard");
   };
 
   return (
@@ -81,7 +144,13 @@ export default function Profile() {
           transition={{ duration: 0.5 }}
           className="max-w-3xl mx-auto"
         >
-          <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
+          <div className="flex items-center gap-2 mb-8">
+            <Button variant="ghost" onClick={handleBack} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <h1 className="text-3xl font-bold">Profile Settings</h1>
+          </div>
 
           <Card>
             <CardHeader>
@@ -96,9 +165,31 @@ export default function Profile() {
                     alt="Profile"
                     className="w-24 h-24 rounded-full bg-muted"
                   />
-                  <button className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
+                  <label className="absolute bottom-0 right-0 p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
                     <Camera className="h-4 w-4" />
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file || !profile?.id) return;
+                        const ext = file.name.split(".").pop();
+                        const path = `${profile.id}/avatar.${ext}`;
+                        const { error: upErr } = await supabase.storage.from("profiles").upload(path, file, {
+                          upsert: true,
+                        });
+                        if (upErr) {
+                          toast.error(upErr.message);
+                          return;
+                        }
+                        const { data: pub } = supabase.storage.from("profiles").getPublicUrl(path);
+                        if (pub?.publicUrl) {
+                          setProfileImage(pub.publicUrl);
+                        }
+                      }}
+                    />
+                  </label>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-1">Profile Picture</h3>

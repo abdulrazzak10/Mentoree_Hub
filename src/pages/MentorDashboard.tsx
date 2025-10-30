@@ -3,9 +3,10 @@ import { motion } from "framer-motion";
 import { Navbar } from "@/components/Navbar";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Users, Calendar, MessageSquare, DollarSign, CheckCircle, XCircle } from "lucide-react";
-import { toast } from "sonner";
+import { Users, Calendar, MessageSquare, DollarSign } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Request {
   id: string;
@@ -16,47 +17,55 @@ interface Request {
 }
 
 export default function MentorDashboard() {
-  const [requests, setRequests] = useState<Request[]>([
-    {
-      id: "1",
-      studentName: "John Davis",
-      date: "2025-11-10",
-      time: "14:00",
-      topic: "Career guidance in web development",
+  const { userId } = useAuth();
+  const sessionsQuery = useQuery({
+    queryKey: ["sessions", "mentor", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("id, student_id, date, time, status")
+        .eq("mentor_id", userId);
+      if (error) throw error;
+      return data || [];
     },
-    {
-      id: "2",
-      studentName: "Emma Wilson",
-      date: "2025-11-12",
-      time: "16:00",
-      topic: "Portfolio review",
+  });
+  const chatsQuery = useQuery({
+    queryKey: ["chats", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("chats")
+        .select("id, student_id")
+        .eq("mentor_id", userId);
+      if (error) throw error;
+      return data || [];
     },
-  ]);
+  });
+
+  const sessions = sessionsQuery.data || [];
+  const totalStudents = new Set(sessions.map((s: any) => s.student_id)).size;
+  const sessionsCompleted = sessions.filter((s: any) => s.status === "completed").length;
+  const activeChats = (chatsQuery.data || []).length;
 
   const stats = [
     {
       title: "Total Students",
-      value: "24",
+      value: String(totalStudents),
       icon: <Users className="h-5 w-5 text-primary" />,
-      change: "+4 this month",
+      change: "",
     },
     {
       title: "Sessions Completed",
-      value: "156",
+      value: String(sessionsCompleted),
       icon: <Calendar className="h-5 w-5 text-primary" />,
-      change: "+12 this month",
+      change: "",
     },
     {
       title: "Active Chats",
-      value: "8",
+      value: String(activeChats),
       icon: <MessageSquare className="h-5 w-5 text-primary" />,
-      change: "3 unread",
-    },
-    {
-      title: "Earnings",
-      value: "$2,340",
-      icon: <DollarSign className="h-5 w-5 text-primary" />,
-      change: "+$480 this month",
+      change: "",
     },
   ];
 
@@ -116,56 +125,6 @@ export default function MentorDashboard() {
               ))}
             </div>
 
-            {/* Pending Requests */}
-            <div>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pending Session Requests</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {requests.length > 0 ? (
-                    requests.map((request) => (
-                      <Card key={request.id}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-2 flex-1">
-                              <h3 className="font-semibold">{request.studentName}</h3>
-                              <p className="text-sm text-muted-foreground">{request.topic}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {new Date(request.date).toLocaleDateString()} at {request.time}
-                              </p>
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <Button
-                                size="sm"
-                                onClick={() => handleAccept(request.id)}
-                                className="gap-2"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                                Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDecline(request.id)}
-                                className="gap-2"
-                              >
-                                <XCircle className="h-4 w-4" />
-                                Decline
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      No pending requests at the moment
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
           </motion.div>
         </main>
       </div>

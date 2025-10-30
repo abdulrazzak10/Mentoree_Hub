@@ -9,11 +9,44 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const defaultRole = searchParams.get("role") || "student";
+
+  const countries = [
+    "Afghanistan","Albania","Algeria","Andorra","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan",
+    "Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi",
+    "Cambodia","Cameroon","Canada","Cape Verde","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo (Congo-Brazzaville)","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic",
+    "Denmark","Djibouti","Dominica","Dominican Republic",
+    "Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia",
+    "Fiji","Finland","France",
+    "Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana",
+    "Haiti","Honduras","Hungary",
+    "Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy",
+    "Jamaica","Japan","Jordan",
+    "Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan",
+    "Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg",
+    "Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar",
+    "Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway",
+    "Oman",
+    "Pakistan","Palau","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal",
+    "Qatar",
+    "Romania","Russia","Rwanda",
+    "Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria",
+    "Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu",
+    "Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan",
+    "Vanuatu","Vatican City","Venezuela","Vietnam",
+    "Yemen",
+    "Zambia","Zimbabwe"
+  ];
+
+  const languages = [
+    { value: "english", label: "English" },
+    { value: "hindi", label: "Hindi" },
+  ];
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,21 +56,44 @@ export default function Register() {
     language: "",
   });
 
-  const handleSubmit = (role: string) => {
+  const handleSubmit = async (role: string) => {
     if (!formData.name || !formData.email || !formData.password || !formData.country || !formData.language) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    localStorage.setItem("userRole", role);
-    localStorage.setItem("userEmail", formData.email);
-    toast.success("Account created successfully!");
-    
-    if (role === "student") {
-      navigate("/profile");
-    } else {
-      navigate("/profile");
+    const { data: signUp, error: signUpError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+    });
+    if (signUpError) {
+      toast.error(signUpError.message);
+      return;
     }
+    const userId = signUp.user?.id;
+    if (!userId) {
+      toast.error("Signup failed. No user ID returned.");
+      return;
+    }
+
+    const { error: profileError } = await supabase.from("profiles").upsert(
+      {
+        id: userId,
+        name: formData.name,
+        country: formData.country,
+        bio: "",
+        profile_image_url: null,
+        role: role === "mentor" ? "mentor" : "student",
+      },
+      { onConflict: "id" }
+    );
+    if (profileError) {
+      toast.error(profileError.message);
+      return;
+    }
+
+    toast.success("Account created successfully!");
+    navigate("/profile");
   };
 
   return (
@@ -69,7 +125,6 @@ export default function Register() {
                       <Label htmlFor="student-name">Full Name</Label>
                       <Input
                         id="student-name"
-                        placeholder="John Doe"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       />
@@ -80,7 +135,6 @@ export default function Register() {
                       <Input
                         id="student-email"
                         type="email"
-                        placeholder="john@example.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       />
@@ -91,46 +145,43 @@ export default function Register() {
                       <Input
                         id="student-password"
                         type="password"
-                        placeholder="••••••••"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="student-country">Country</Label>
-                        <Select value={formData.country} onValueChange={(value) => setFormData({ ...formData, country: value })}>
-                          <SelectTrigger id="student-country">
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="us">United States</SelectItem>
-                            <SelectItem value="uk">United Kingdom</SelectItem>
-                            <SelectItem value="ca">Canada</SelectItem>
-                            <SelectItem value="au">Australia</SelectItem>
-                            <SelectItem value="in">India</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student-country">Country</Label>
+                      <Select value={formData.country} onValueChange={(value) => setFormData({ ...formData, country: value })}>
+                        <SelectTrigger id="student-country">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countries.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="student-language">Language</Label>
-                        <Select value={formData.language} onValueChange={(value) => setFormData({ ...formData, language: value })}>
-                          <SelectTrigger id="student-language">
-                            <SelectValue placeholder="Select language" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="english">English</SelectItem>
-                            <SelectItem value="spanish">Spanish</SelectItem>
-                            <SelectItem value="french">French</SelectItem>
-                            <SelectItem value="mandarin">Mandarin</SelectItem>
-                            <SelectItem value="hindi">Hindi</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="student-language">Language</Label>
+                      <Select value={formData.language} onValueChange={(value) => setFormData({ ...formData, language: value })}>
+                        <SelectTrigger id="student-language">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {languages.map((l) => (
+                            <SelectItem key={l.value} value={l.value}>
+                              {l.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     </div>
 
                     <Button className="w-full" size="lg" onClick={() => handleSubmit("student")}>
@@ -145,7 +196,6 @@ export default function Register() {
                       <Label htmlFor="mentor-name">Full Name</Label>
                       <Input
                         id="mentor-name"
-                        placeholder="Jane Smith"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       />
@@ -156,7 +206,6 @@ export default function Register() {
                       <Input
                         id="mentor-email"
                         type="email"
-                        placeholder="jane@example.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       />
@@ -167,46 +216,43 @@ export default function Register() {
                       <Input
                         id="mentor-password"
                         type="password"
-                        placeholder="••••••••"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="mentor-country">Country</Label>
-                        <Select value={formData.country} onValueChange={(value) => setFormData({ ...formData, country: value })}>
-                          <SelectTrigger id="mentor-country">
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="us">United States</SelectItem>
-                            <SelectItem value="uk">United Kingdom</SelectItem>
-                            <SelectItem value="ca">Canada</SelectItem>
-                            <SelectItem value="au">Australia</SelectItem>
-                            <SelectItem value="in">India</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mentor-country">Country</Label>
+                      <Select value={formData.country} onValueChange={(value) => setFormData({ ...formData, country: value })}>
+                        <SelectTrigger id="mentor-country">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countries.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="mentor-language">Language</Label>
-                        <Select value={formData.language} onValueChange={(value) => setFormData({ ...formData, language: value })}>
-                          <SelectTrigger id="mentor-language">
-                            <SelectValue placeholder="Select language" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="english">English</SelectItem>
-                            <SelectItem value="spanish">Spanish</SelectItem>
-                            <SelectItem value="french">French</SelectItem>
-                            <SelectItem value="mandarin">Mandarin</SelectItem>
-                            <SelectItem value="hindi">Hindi</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mentor-language">Language</Label>
+                      <Select value={formData.language} onValueChange={(value) => setFormData({ ...formData, language: value })}>
+                        <SelectTrigger id="mentor-language">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {languages.map((l) => (
+                            <SelectItem key={l.value} value={l.value}>
+                              {l.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     </div>
 
                     <Button className="w-full" size="lg" onClick={() => handleSubmit("mentor")}>
