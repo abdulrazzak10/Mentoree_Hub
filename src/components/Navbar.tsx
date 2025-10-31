@@ -76,7 +76,7 @@ export function Navbar() {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 space-y-3 border-t">
+          <div className="md:hidden py-4 space-y-1 border-t">
             {!isAuthenticated ? (
               <>
                 <Link
@@ -94,25 +94,44 @@ export function Navbar() {
                   Get Started
                 </Link>
               </>
+            ) : profile?.is_admin ? (
+              <>
+                <Link to="/admin" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
+                <Link to="/admin" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Admin</Link>
+                <button
+                  onClick={async () => {
+                    await handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
+                >
+                  Logout
+                </button>
+              </>
+            ) : profile?.role === "student" ? (
+              <>
+                <Link to="/student/dashboard" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
+                <Link to="/mentors" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Find Mentors</Link>
+                <Link to="/student/sessions" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>My Sessions</Link>
+                <Link to="/chat" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Messages</Link>
+                <Link to="/profile" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Profile</Link>
+                <button
+                  onClick={async () => {
+                    await handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
+                >
+                  Logout
+                </button>
+              </>
             ) : (
               <>
-                {profile?.is_admin ? (
-                  <Link
-                    to="/admin"
-                    className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Admin
-                  </Link>
-                ) : (
-                  <Link
-                    to={profile?.role === "student" ? "/student/dashboard" : "/mentor/dashboard"}
-                    className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                )}
+                <Link to="/mentor/dashboard" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
+                <Link to="/mentor/requests" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Requests</Link>
+                <Link to="/mentor/sessions" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>My Sessions</Link>
+                <Link to="/chat" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Messages</Link>
+                <Link to="/profile" className="block px-4 py-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors" onClick={() => setIsMenuOpen(false)}>Profile</Link>
                 <button
                   onClick={async () => {
                     await handleLogout();

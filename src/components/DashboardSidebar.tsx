@@ -81,27 +81,30 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
   const items = role === "student" ? studentItems : mentorItems;
 
   return (
-    <aside className="w-64 border-r bg-muted/30 min-h-[calc(100vh-4rem)]">
-      <nav className="p-4 space-y-2">
-        {items.map((item) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              className={cn(
-                "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {item.icon}
-              <span className="font-medium">{item.title}</span>
-            </Link>
-          );
-        })}
-      </nav>
-    </aside>
+    <>
+      {/* Desktop static sidebar */}
+      <aside className="hidden md:block w-64 border-r bg-muted/30 min-h-[calc(100vh-4rem)]">
+        <nav className="p-4 space-y-2">
+          {items.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className={cn(
+                  "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {item.icon}
+                <span className="font-medium">{item.title}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
   );
 }
